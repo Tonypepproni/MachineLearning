@@ -1,0 +1,3 @@
+import scrubber
+
+scrubber.scrub()
