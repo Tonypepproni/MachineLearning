@@ -1,13 +1,20 @@
 from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import roc_curve, auc
 
 def run(X_train, X_test, y_train, y_test):
     print("\n--- XGBoost (XGB) ---")
+    # eval_metric='logloss' prevents warnings
     model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
     model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
     
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f"Accuracy: {accuracy:.4f}")
+    # Get probabilities
+    y_probs = model.predict_proba(X_test)[:, 1]
     
-    return accuracy
+    # Calculate ROC metrics
+    fpr, tpr, _ = roc_curve(y_test, y_probs)
+    roc_auc = auc(fpr, tpr)
+    
+    print(f"AUC Score: {roc_auc:.4f}")
+    
+    # Return 3 values
+    return fpr, tpr, roc_auc

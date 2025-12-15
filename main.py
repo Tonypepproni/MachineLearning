@@ -5,7 +5,6 @@ from sklearn.model_selection import train_test_split
 # Existing modules
 import scrubber 
 import linear_regression
-# from k_neighbor import k_nei # Commented out if not in use, uncocomment if needed
 
 # New model modules
 import naive_bayes
@@ -14,56 +13,59 @@ import xgboost_algo
 
 def main():
     # 1. Load and Scrub Data
+    print("Loading and cleaning data...")
     df = pd.read_csv('bank-full.csv', sep=';')
+    
+    # Use your scrubber to clean/map data to numbers
     df = scrubber.scrubber.clean(df)
     
-    # 2. Prepare Figure for "One Window" Comparison
-    # We create 2 subplots: one for Linear Regression, one for Classification comparison
+    # 2. Prepare Figure with 2 Subplots
+    # figsize=(10, 10) creates a tall window. 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
-    plt.subplots_adjust(hspace=0.4) # Add space between plots
+    plt.subplots_adjust(hspace=0.4) # Add space between the two graphs
 
-    # --- Plot 1: Linear Regression (Existing Logic) ---
+    # --- Plot 1: Linear Regression ---
     print("Running Linear Regression...")
-    x_vals, y_line = linear_regression.lin_reg_calc.calc(df)
-    
-    ax1.plot(x_vals, y_line, color='blue', label='Regression Line')
-    ax1.set_title("Linear Regression Analysis")
-    ax1.set_xlabel("Input Variable")
-    ax1.set_ylabel("Target Prediction")
-    ax1.legend()
+    try:
+        x_vals, y_line = linear_regression.lin_reg_calc.calc(df)
+        ax1.plot(x_vals, y_line, color='blue', label='Regression Line')
+        ax1.set_title("Linear Regression Analysis")
+        ax1.set_xlabel("Input Variable")
+        ax1.set_ylabel("Target Prediction")
+        ax1.legend()
+    except Exception as e:
+        print(f"Could not run Linear Regression: {e}")
+        ax1.text(0.5, 0.5, "Linear Regression Error", ha='center')
 
-    # --- Plot 2: Classification Model Comparison ---
+    # --- Plot 2: Classification Performance (ROC Curves) ---
     print("Running Classification Models...")
     
-    # Prepare Classification Data
-    # Assuming 'y' is the target. We drop it for X.
-    # Note: Ensure your scrubber converts 'y' to numbers (0/1) as seen in your scrubber text
+    # Prepare Data
+    # 'y' is the target column
     X = df.drop('y', axis=1)
     y = df['y']
     
-    # Split Data
+    # Split Data (80% Train, 20% Test)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Run Models and Collect Accuracies
-    acc_nb = naive_bayes.run(X_train, X_test, y_train, y_test)
-    acc_dt = decision_tree.run(X_train, X_test, y_train, y_test)
-    acc_xgb = xgboost_algo.run(X_train, X_test, y_train, y_test)
+    # Run Models and Get ROC Data (FPR, TPR, AUC)
+    fpr_nb, tpr_nb, auc_nb = naive_bayes.run(X_train, X_test, y_train, y_test)
+    fpr_dt, tpr_dt, auc_dt = decision_tree.run(X_train, X_test, y_train, y_test)
+    fpr_xgb, tpr_xgb, auc_xgb = xgboost_algo.run(X_train, X_test, y_train, y_test)
 
-    # Create Bar Chart
-    models = ['Naive Bayes', 'Decision Tree', 'XGBoost']
-    accuracies = [acc_nb, acc_dt, acc_xgb]
-    colors = ['skyblue', 'lightgreen', 'salmon']
+    # Plot ROC Curves on the second graph (ax2)
+    ax2.plot(fpr_nb, tpr_nb, label=f'Naive Bayes (AUC = {auc_nb:.2f})', color='skyblue')
+    ax2.plot(fpr_dt, tpr_dt, label=f'Decision Tree (AUC = {auc_dt:.2f})', color='lightgreen')
+    ax2.plot(fpr_xgb, tpr_xgb, label=f'XGBoost (AUC = {auc_xgb:.2f})', color='salmon')
+    
+    # Plot diagonal "Random Guess" line
+    # ax2.plot([0, 1], [0, 1], 'k--', label='Random Chance')
 
-    bars = ax2.bar(models, accuracies, color=colors)
-    ax2.set_title("Classification Algorithm Accuracy Comparison")
-    ax2.set_ylabel("Accuracy Score")
-    ax2.set_ylim(0, 1.0)
-
-    # Add text labels on top of bars
-    for bar in bars:
-        height = bar.get_height()
-        ax2.text(bar.get_x() + bar.get_width()/2., 1.01*height,
-                f'{height:.2%}', ha='center', va='bottom')
+    ax2.set_title("Model Performance: ROC Curves")
+    ax2.set_xlabel("False Positive Rate")
+    ax2.set_ylabel("True Positive Rate")
+    ax2.legend(loc="lower right")
+    ax2.grid(alpha=0.3)
 
     print("Displaying plots...")
     plt.show()
